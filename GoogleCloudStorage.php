@@ -188,69 +188,45 @@ class GoogleCloudStorage {
 	 
 	 }
 	 
-	public function bucket_upload_directory( $source, $use_validation = false, $permissions = "private", $recursive = true ) {
-	 
-			$result = null;
-		$path = realpath( $source );
+        public function bucket_upload_directory( $source, $use_validation = false, $permissions = "private", $recursive = true ) {
+                        $result = null;
+                $path = realpath( $source );
 
-	 	if( is_dir( $path ) ) {
-	 		
-	 		$dir_files = glob( '*', GLOB_MARK );
-			foreach( $dir_files as $file ) {
-			
-				if( is_dir( $file )) {
-				
-					if( $recursive ) {
-					
-						$this->bucket_upload_directory( $file );
-					
-					}
-					
-				}
-				else {
-			
-					$target_name = basename( $path );
-					$opts = array(
-						'name'			=> $file,
-						'validate'		=> $use_validation,
-						'predefinedAcl'	=> $permissions,
-						'resumable'		=> 'true',
-						'data'          => file_get_contents($file),
-						'uploadType'	=> 'media',
-					);
-					try {
-			
-						$this->object = $this->bucket->upload( $file, $opts );
-						$result = $this->object;
-					}
-					catch( \Exception $e ) {
-		
-						$result = $e;
-						$this->errors[$this->error_count] = $e->getServiceException()->getMessage();
-						$this->error_count++;
-			
-					}
-					if( null != $this->object ) {
-		
-						$this->get_object_acl();
-		
-					}
-				
-				}
-			
-			}
-		
-		}
-		else {
-		
-			$result = 'This is not a directory.';
-			$this->errors[$this->error_count] = $e->getServiceException()->getMessage();
-			$this->error_count++;
-		
-		}
-		return $result;
-	 
-	}
+                $rdi = new \RecursiveDirectoryIterator($path);
+                $rii = new \RecursiveIteratorIterator($rdi, \RecursiveIteratorIterator::SELF_FIRST);
+
+                foreach($rii as $k => $splFileInfo) {
+                        if($splFileInfo->getBasename()[0] == '.' || $splFileInfo->isDir()) {
+                                continue;
+                        }
+                        $file = basename($splFileInfo->getPath()) . '/' . $splFileInfo->getFilename();
+
+                        $opts = array(
+                                'name'          => $file,
+                                'validate'      => $use_validation,
+                                'predefinedAcl' => $permissions,
+                                'resumable'     => 'true',
+                                'data'          => file_get_contents($splFileInfo->getPathname()),
+                                'uploadType'    => 'media',
+                        );
+                        try {
+                                $this->object = $this->bucket->upload( $file, $opts );
+                                $result = $this->object;
+                        }
+                        catch( \Exception $e ) {
+
+                                $result = $e;
+                                $this->errors[$this->error_count] = $e->getServiceException()->getMessage();
+                                $this->error_count++;
+
+                        }
+                        if( null != $this->object ) {
+                                $this->get_object_acl();
+                        }
+                }
+
+                return $result;
+        }
 	 
 	 //Options - delimiter(string)[null], maxResults(int)[1000], prefix(string)[null], projection(string)[null], versions(bool)[false], fields(string)[null]
 	 public function bucket_get_objects( $options = array() ) {
